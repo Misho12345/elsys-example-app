@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 app = FastAPI(title="File Storage API", version="1.0.0")
 
@@ -53,12 +53,14 @@ async def get_file(filename: str):
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
-    
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type="application/octet-stream"
-    )
+
+    try:
+        data = file_path.read_bytes()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {exc}") from exc
+
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(content=data, media_type="application/octet-stream", headers=headers)
 
 
 @app.post("/files")
@@ -128,7 +130,7 @@ async def health_check():
     """
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "service": "File Storage API"
     }
 
@@ -149,6 +151,5 @@ async def metrics():
         "files_current": len(files),
         "total_storage_bytes": total_size,
         "total_storage_mb": round(total_size / (1024 * 1024), 2),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
-
