@@ -9,6 +9,7 @@ app = FastAPI(title="File Storage API", version="1.0.0")
 STORAGE_DIR = Path("storage")
 STORAGE_DIR.mkdir(exist_ok=True)
 
+
 # Counter for files stored (initialize with existing files count)
 def get_file_count():
     return len([f for f in STORAGE_DIR.iterdir() if f.is_file()])
