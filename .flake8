@@ -13,6 +13,7 @@ exclude =
     build,
     dist,
     .pytest_cache
+    singleton-example
 
 per-file-ignores =
     __init__.py:F401
