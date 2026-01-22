@@ -1,13 +1,9 @@
 import main
 
-import sys
-from pathlib import Path
-
 import pytest
 import pytest_asyncio
 import httpx
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 pytestmark = pytest.mark.asyncio
 
