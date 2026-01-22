@@ -1,3 +1,5 @@
+// use clang that supports C++23 for linux; for windows use the latest msvc compiler
+
 import std;
 
 class Sirene final
