@@ -3,31 +3,61 @@ name: CI / CD
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  tests:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install flake8
+
+      - name: Run flake8
+        run: |
+          flake8 .
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
       - name: Run unit tests
         run: pytest -q
+
       - name: Start FastAPI app
         run: |
           nohup uvicorn main:app --host 127.0.0.1 --port 8000 >/tmp/uvicorn.log 2>&1 &
           echo $! > uvicorn.pid
-          sleep 5
+          for i in {1..20}; do
+            curl -fsS http://127.0.0.1:8000/health && break
+            sleep 1
+          done
+
       - name: Run short load test
         env:
           LOCUST_HOST: http://127.0.0.1:8000
         run: locust --headless -u 10 -r 5 -t 30s -H "${LOCUST_HOST}"
+
       - name: Stop FastAPI app
         if: always()
         run: |
@@ -35,14 +65,15 @@ jobs:
             kill "$(cat uvicorn.pid)" || true
           fi
 
-  docker:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  docker-build:
     runs-on: ubuntu-latest
+    needs: [lint, tests]
     steps:
       - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
-        env:
-          IMAGE_NAME: file-storage-api
         run: |
-          docker build -t "${IMAGE_NAME}:${GITHUB_SHA}" .
-          docker tag "${IMAGE_NAME}:${GITHUB_SHA}" "${IMAGE_NAME}:latest"
+          docker build -t file-storage-api:${GITHUB_SHA} .
+
